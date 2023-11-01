@@ -1,0 +1,158 @@
+install.packages('tidyverse')
+library(tidyverse)
+
+install.packages('janitor')
+library(janitor)
+
+install.packages('skimr')
+library(skimr)
+
+## creating dataframes using the read_csv() function
+
+daily_activity <- read_csv('dailyActivity_merged.csv')
+sleep_day <- read_csv('sleepDay_merged.csv')
+weight_log <- read_csv('weightLogInfo_merged.csv')
+heartrate_seconds <- read_csv('heartrate_seconds_merged.csv')
+hourly_calories <- read_csv('hourlyCalories_merged.csv')
+hourly_intensities <- read_csv('hourlyIntensities_merged.csv')
+hourly_steps <- read_csv('hourlySteps_merged.csv')
+
+## quick assessment of each dataframe
+
+glimpse(daily_activity)
+glimpse(sleep_day)
+glimpse(weight_log)
+glimpse(heartrate_seconds)
+glimpse(hourly_calories)
+glimpse(hourly_intensities)
+glimpse(hourly_steps)
+
+### we can observe that there is an ID column across all dataframes. This can act as our foreign key. 
+
+## next, I'll aim to find out the number of participants in this dataframes by counting the number of distinct member IDs.
+
+n_distinct(daily_activity$Id)
+n_distinct(sleep_day$Id)
+n_distinct(weight_log$Id)
+n_distinct(heartrate_seconds$Id)
+n_distinct(hourly_calories$Id)
+n_distinct(hourly_intensities$Id)
+n_distinct(hourly_steps$Id)
+
+### the daily_activity, hourly_calories, intensities and steps dataframes have 33 distinct member IDs, while the rest have fewer.
+
+## through our initial assessment of the data, we've also noticed 1. naming of columns can be made easier 2. date formats are in chr
+### before we proceed with the analysis, we'll want to ensure our dataframe is easy to use and data formats are in order.
+
+daily_activity <- daily_activity %>% 
+  rename(date = ActivityDate) %>% 
+  rename_all(tolower)
+
+hourly_calories <- hourly_calories %>% 
+  rename_all(tolower) %>% 
+  rename(date_time = activityhour)
+
+hourly_intensities <- hourly_intensities %>% 
+  rename_all(tolower) %>%
+  rename(date_time = activityhour)
+
+hourly_steps <- hourly_steps %>% 
+  rename_all(tolower) %>% 
+  rename(date_time = activityhour)
+
+sleep_day <- sleep_day %>% 
+  rename_all(tolower) %>% 
+  rename(date_time = sleepday)
+
+weight_log <- weight_log %>% 
+  rename_all(tolower) %>% 
+  rename(date_time = date)
+  
+heartrate_seconds <- heartrate_seconds %>% 
+  rename_all(tolower) %>% 
+  rename(date_time = time)
+
+### converting date and time formats from chr to ymdhms
+
+daily_activity$date <- mdy(daily_activity$date)
+hourly_calories$date_time <- mdy_hms(hourly_calories$date_time)
+hourly_intensities$date_time <- mdy_hms(hourly_intensities$date_time)
+hourly_steps$date_time <- mdy_hms(hourly_steps$date_time)
+sleep_day$date_time <- mdy_hms(sleep_day$date_time)
+weight_log$date_time <- mdy_hms(weight_log$date_time)
+heartrate_seconds$date_time <- mdy_hms(heartrate_seconds$date_time)
+
+### checking that my hourly dataframes are in 24H time formats
+View(hourly_intensities)
+View(hourly_calories)
+View(hourly_steps)
+
+### checking for duplicates and null, based on date and time
+is.null(daily_activity$date)
+is.null(hourly_calories$date_time)
+is.null(hourly_intensities$date_time)
+is.null(hourly_steps$date_time)
+is.null(sleep_day$date_time)
+is.null(weight_log$date_time)
+is.null(heartrate_seconds$date_time)
+
+duplicates_daily <- daily_activity %>% 
+  group_by(id, date) %>% 
+  filter(n()>1)
+duplicates_daily
+
+duplicates_hourlyC <- hourly_calories %>% 
+  group_by(id, date_time) %>% 
+  filter(n()>1)
+duplicates_hourlyC
+
+duplicates_hourlyI <- hourly_intensities %>% 
+  group_by(id, date_time) %>% 
+  filter(n()>1)
+duplicates_hourlyI
+
+duplicates_hourlyS <- hourly_steps %>% 
+  group_by(id, date_time) %>% 
+  filter(n()>1)
+duplicates_hourlyS
+
+duplicates_sleepday <- sleep_day %>% 
+  group_by(id, date_time) %>% 
+  filter(n()>1)
+duplicates_sleepday
+
+duplicates_weightlog <- weight_log %>% 
+  group_by(id, date_time) %>% 
+  filter(n()>1)
+duplicates_weightlog
+
+duplicates_heartrate <- heartrate_seconds %>% 
+  group_by(id, date_time) %>% 
+  filter(n()>1)
+duplicates_heartrate
+
+### there are 3 entries (id and date_time combinations) in the sleep_day dataframe that are duplicated. 
+
+sleep_day <- sleep_day %>% distinct(id, date_time, .keep_all = TRUE)
+
+# Analysis
+
+### What are some trends in smart device usage?
+
+#### Do people manually log their activities?
+
+daily_activity %>% 
+  ggplot() + 
+  geom_point(mapping=aes(x=date, y=loggedactivitiesdistance)) + 
+  facet_wrap(~id)
+
+##### Only 4/33 users manually log their activities distance. They could likely be logging an activity that isn't GPS tracked, for example running on a threadmill.
+
+#### Do people wear their smart device to all the time?
+
+hourly_calories %>% 
+  ggplot() +
+  geom_point(mapping=aes(x=date_time, y=calories)) +
+  facet_wrap(~id)
+
+##### At least 8/33 users did not wear their smart devices all the time.
